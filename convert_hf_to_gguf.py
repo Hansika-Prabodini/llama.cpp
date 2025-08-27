@@ -142,13 +142,36 @@ class ModelBase:
         new_name = f"{prefix}{stem}{suffix}"
         return path.with_name(new_name)
 
+import threading
+from typing import Iterable, Any
+
+class HyperparameterFinder:
+    def __init__(self):
+        self.hparams = {}
+        self.lock = threading.Lock()
+
     def find_hparam(self, keys: Iterable[str], optional: bool = False) -> Any:
-        key = next((k for k in keys if k in self.hparams), None)
-        if key is not None:
-            return self.hparams[key]
-        if optional:
-            return None
-        raise KeyError(f"could not find any of: {keys}")
+        with self.lock:
+            key = next((k for k in keys if k in self.hparams), None)
+            if key is not None:
+                return self.hparams[key]
+            if optional:
+                return None
+            raise KeyError(f"could not find any of: {keys}")
+
+    def update_hparams(self, new_hparams: dict) -> None:
+        with self.lock:
+            self.hparams.update(new_hparams)
+
+    def batch_process_hparams(self, batches: Iterable[dict]) -> None:
+        threads = []
+        for batch in batches:
+            thread = threading.Thread(target=self.update_hparams, args=(batch,))
+            threads.append(thread)
+            thread.start()
+        
+        for thread in threads:
+            thread.join()
 
     def get_tensors(self) -> Iterator[tuple[str, Tensor]]:
         tensor_names_from_parts: set[str] = set()
