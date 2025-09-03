@@ -149,13 +149,26 @@ pre_computed_hashes = [
 ]
 
 
-def download_file_with_auth(url, token, save_path):
+def download_file_with_auth(url: str, token: str | None, save_path: str) -> None:
     headers = {"Authorization": f"Bearer {token}"} if token else None
-    response = sess.get(url, headers=headers)
+    # Get or create a session
+    try:
+        session = sess
+    except NameError:
+        # Fall back to a local session if the global one is not available
+        import requests
+        session = requests.Session()
+
+    response = session.get(url, headers=headers)
     response.raise_for_status()
-    os.makedirs(os.path.dirname(save_path), exist_ok=True)
+
+    dir_path = os.path.dirname(save_path)
+    if dir_path:
+        os.makedirs(dir_path, exist_ok=True)
+
     with open(save_path, 'wb') as downloaded_file:
         downloaded_file.write(response.content)
+
     logger.info(f"File {save_path} downloaded successfully")
 
 
